@@ -2,12 +2,12 @@ program main
     use iso_fortran_env, only : dp => real64, i4 => int32
     implicit none
 
-    integer(i4), parameter :: N=64,thermalization=5000,eachsweep=500,Nmsrs=200,Nmsrs2=120
+    integer(i4), parameter :: N=64,thermalization=5000,eachsweep=500,Nmsrs=100,Nmsrs2=120
     integer(i4), parameter :: Mbin(5)=(/4,5,10,15,20/),bins=201
-    real(dp), parameter :: lambda0=1._dp, maxx=3._dp,minn=-3._dp,dphi=0.5_dp
+    real(dp), parameter :: dt=0.4_dp,a=3._dp, c=1.4_dp, maxx=3._dp,minn=-3._dp,dphi=0.5_dp
     real(dp), parameter :: binwidth=(maxx-minn)/real(bins,dp)
     !call vary_mu(0.0_dp,-3.0_dp,21)
-    call make_histogram(-5._dp)
+    call make_histogram(a)
 
 contains
 
@@ -28,8 +28,8 @@ contains
     real(dp), dimension(:), intent(in) :: phi
     integer(i4), intent(in) :: i1
     real(dp) :: lagrangian
-    lagrangian=( (phi(iv(i1+1))-phi(i1) )**2  &
-              &-m02*(phi(i1)**2+0.1_dp)**2 *((phi(i1)-1.4_dp)*(phi(i1)+1.4_dp) )**2)/2._dp
+    lagrangian=( ( (phi(iv(i1+1))-phi(i1))/dt )**2  &
+              &+m02*(phi(i1)**2) *((phi(i1)-c)*(phi(i1)+c) )**2)/2._dp
   end function lagrangian
 
   function S(m02,phi)
@@ -309,11 +309,12 @@ contains
   subroutine make_histogram(m0)
     real(dp), intent(in) :: m0
     real(dp) :: phi(N),norm,AR
-    integer(i4) :: i,j,k
+    integer(i4) :: i,j,k,jj
     real(dp), allocatable :: A2(:)
     integer(i4), allocatable :: A1(:)
     real(dp) :: arate(Nmsrs2), ar_ave, ar_err
     open(50, file = 'data/histogram.dat', status = 'replace')
+    open(60, file = 'data/myhistogram.dat', status = 'replace')
     allocate(A1(bins))
     allocate(A2(bins))
     !phi(:)=0._dp
@@ -334,9 +335,12 @@ contains
           call montecarlo(m0,dphi,phi,AR)
         end do
         arate(i)=arate(i)+AR
-        !call histogram(phi,A1,A2)
+        call histogram(phi,A1,A2)
         !call histogram2(mean(phi)/real(N,dp),A1,A2)
-        call histogram2(phi(1),A1,A2)
+        !call histogram2(phi(1),A1,A2)
+        do jj=1,size(phi)
+          write(60,*) phi(jj)
+        end do
       end do
     end do
 
@@ -355,6 +359,7 @@ contains
     
     deallocate(A1,A2)
     close(50)
+    close(60)
   end subroutine make_histogram
 
 end program main
