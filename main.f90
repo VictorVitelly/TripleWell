@@ -4,7 +4,7 @@ program main
 
     integer(i4), parameter :: N=64,thermalization=5000,eachsweep=500,Nmsrs=100,Nmsrs2=120
     integer(i4), parameter :: Mbin(5)=(/4,5,10,15,20/),bins=201
-    real(dp), parameter :: dt=0.4_dp,a=3._dp, c=1.4_dp, maxx=3._dp,minn=-3._dp,dphi=0.5_dp
+    real(dp), parameter :: dt=0.1_dp,a=3.5_dp, c=1._dp, maxx=3._dp,minn=-3._dp,dphi=0.2_dp
     real(dp), parameter :: binwidth=(maxx-minn)/real(bins,dp)
     !call vary_mu(0.0_dp,-3.0_dp,21)
     call make_histogram(a)
@@ -23,13 +23,23 @@ contains
     end if
   end function
 
+  function potential(m02,phi,i1)
+    real(dp), intent(in) :: m02
+    real(dp), dimension(:), intent(in) :: phi
+    integer(i4), intent(in) :: i1
+    real(dp) :: potential
+    !potential=m02*(phi(i1)**2) *((phi(i1)-c)*(phi(i1)+c) )**2 /2._dp
+    !potential=(phi(i1)**6+2._dp*phi(i1)**4-2._dp*(2._dp*m02+1)*phi(i1)**2) /2._dp
+    potential=(phi(i1)**2+1._dp) *((phi(i1)-c)*(phi(i1)+c) )**2 /2._dp
+  end function potential
+
   function lagrangian(m02,phi,i1)
     real(dp), intent(in) :: m02
     real(dp), dimension(:), intent(in) :: phi
     integer(i4), intent(in) :: i1
     real(dp) :: lagrangian
-    lagrangian=( ( (phi(iv(i1+1))-phi(i1))/dt )**2  &
-              &+m02*(phi(i1)**2) *((phi(i1)-c)*(phi(i1)+c) )**2)/2._dp
+    lagrangian= ( (phi(iv(i1+1))-phi(i1))/dt )**2 /2._dp &
+              &+potential(m02,phi,i1)
   end function lagrangian
 
   function S(m02,phi)
@@ -361,5 +371,88 @@ contains
     close(50)
     close(60)
   end subroutine make_histogram
+
+
+  recursive function find(x,parent) result(out)
+    integer(i4), intent(in) :: x
+    integer(i4), intent(inout) :: parent(:)
+    integer(i4) :: out
+    if(parent(x) /= x) then
+      parent(x)=find(parent(x),parent )
+    end if
+    out=parent(x)
+  end function find
+
+  subroutine union(x,y,parent)
+    integer(i4),intent(in) :: x,y
+    integer(i4),intent(inout) :: parent(:)
+    integer :: root_x, root_y
+    root_x=find(x,parent)
+    root_y=find(y,parent)
+    if (root_x /= root_y) then
+      parent(root_y)=root_x
+    end if
+  end subroutine union
+
+  subroutine cluster(phi)
+    real(dp), dimension(N),intent(inout) :: phi
+    integer(i4), dimension(N) :: spin
+    logical, dimension(N) :: bond_x
+    integer(i4) :: i,label(N),parent(N),next_label,left_label
+    logical, allocatable :: flip_cluster(:)
+    real(dp) :: beta,r,p
+
+    spin(:)=nint(sign(1._dp,phi(:)),i4)
+
+    do i=1,N
+        if(spin(i)==spin(mod(i,N)+1) ) then
+          beta=abs(phi(i))*abs(phi(mod(i,N)+1))
+          p=1._dp-exp(-2._dp*beta )
+          call random_number(r)
+          bond_x(i)=(r<p)
+        else
+          bond_x(i)=.false.
+        end if
+    end do
+
+    label(:)=0
+    do i=1,N
+      parent(i)=i
+    end do
+    next_label=1
+    left_label=0
+
+    do i=1,N
+        left_label=0
+        if(i>1 .and. bond_x(i-1) ) then
+          left_label=label(i-1)
+        end if
+        if(left_label==0) then
+          label(i)=next_label
+          next_label=next_label+1
+        else if(left_label /= 0) then
+          label(i)=left_label
+        end if
+    end do
+
+    if(bond_x(N) ) then
+      call union(label(1),label(N),parent )
+    end if
+
+    allocate(flip_cluster(next_label) )
+    flip_cluster(:)=.false.
+    do i=1,next_label-1
+      call random_number(r)
+      flip_cluster(i)=(r<0.5_dp)
+    end do
+
+    do i=1,N
+      if(flip_cluster(label(i))) then
+        phi(i)=-phi(i)
+      end if
+    end do
+    deallocate(flip_cluster)
+
+  end subroutine cluster
 
 end program main
