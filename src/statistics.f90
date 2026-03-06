@@ -109,6 +109,9 @@ contains
     if(bond_x(N) ) then
       call union(label(1),label(N),parent )
     end if
+    do i=1,N
+      label(i)=find(label(i),parent)
+    end do
 
     allocate(flip_cluster(next_label) )
     flip_cluster(:)=.false.
@@ -134,7 +137,7 @@ contains
       call metropolis(m0,dphi,phi)
     end do
     call montecarlo(m0,dphi,phi,AR)
-    !call cluster(phi)
+    call cluster(phi)
   end subroutine cycles
 !ERROR STATISTICS
 

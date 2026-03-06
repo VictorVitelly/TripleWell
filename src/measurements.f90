@@ -50,22 +50,30 @@ contains
     end do
   end subroutine correlation
 
-  subroutine correlation2(phi,xi2)
-    real(dp), dimension(N), intent(in) :: phi
-    real(dp), dimension(N,N) :: corr2
-    real(dp),intent(inout) :: xi2
-    real(dp) :: F1,F2
-    integer(i4) :: i1
-    do i1=1,N
-        corr2(i1)=(phi(i1)*phi(1))
-    end do
+  subroutine correlation2(CF_ave,CF_err,xi2_ave,xi2_err)
+    real(dp), intent(in) :: CF_ave(N),CF_err(N)
+    real(dp),intent(out) :: xi2_ave,xi2_err
+    real(dp) :: F1,F2,DF1,DF2,DFTOT
+    integer(i4) :: i1,j1
+    xi2_ave=0._dp
+    xi2_err=0._dp
     F1=0._dp
     F2=0._dp
-    do i1=1,N
-      F1=F1+G(i1)
-      F2=F2+G(i1)*cos(i1*2._dp*PI/N)
+    DF1=0._dp
+    DF2=0._dp
+    do j1=1,N
+        F1=F1+CF_ave(j1)
+        F2=F2+CF_ave(j1)*COS(real(j1,dp)*2._dp*PI/real(N,dp))
+        DF1=DF1+(CF_ave(j1) *CF_err(j1))**2
+        DF2=DF2+(CF_ave(j1)*COS(real(j1,dp)*2._dp*PI/real(N,dp)) *CF_err(j1) )**2
+        !write(*,*) 'CF', CF_ave(j1),CF_ave(j1)*COS(real(j1,dp)*2._dp*PI/real(N,dp))
     end do
-    xi2=xi2+sqrt(F1/F2-1._dp)/(2._dp*SIN(PI/N))
+    xi2_ave=sqrt(F1/F2-1._dp)/(2._dp*SIN(PI/N))
+    DF1=SQRT(DF1)
+    DF2=SQRT(DF2)
+    DFTOT=SQRT((DF1/F2)**2+(DF2*F1/(F2**2))**2 )
+    xi2_err=DFTOT/(4._dp*sqrt(F1/F2-1._dp)*SIN(PI/N) )
+    write(*,*) 'F1/F2(i)=', F1,F2, 'xi2(i)=',xi2_ave
   end subroutine correlation2
 
   subroutine make_histogram(m0)
@@ -129,7 +137,7 @@ contains
     real(dp), intent(in) :: mi,mf
     real(dp) :: phi(N),AR,m0
     integer(i4) :: i,i1,j,k
-    real(dp) :: magnet(Nmsrs2),magnetps(Nmsrs2),action(Nmsrs2),arate(Nmsrs2),xi2(Nmsrs2)
+    real(dp) :: magnet(Nmsrs2),magnetps(Nmsrs2),action(Nmsrs2),arate(Nmsrs2)
     real(dp) :: magnet_ave,magnet_err,action_ave,action_err,arate_ave,arate_err
     real(dp) :: magnetps_ave,magnetps_err,xi2_ave,xi2_err
     real(dp), allocatable :: corr1(:),corr2(:,:),CF(:,:),CF_ave(:,:),CF_delta(:,:)
@@ -144,7 +152,7 @@ contains
     allocate(CF(N,Nmsrs2))
     allocate(CF_ave(N,Nps))
     allocate(CF_delta(N,Nps))
-
+    xi2_err=0._dp
     do k=1,Nps
       phi(:)=0._dp
       arate(:)=0._dp
@@ -152,7 +160,6 @@ contains
       magnet(:)=0._dp
       magnetps(:)=0._dp
       CF(:,:)=0._dp
-      xi2(:)=0._dp
       m0=mi+(mf-mi)*real(k-1,dp)/real(Nps-1,dp)
       do i=1,thermalization
           call cycles(m0,dphi,phi,AR)
@@ -170,7 +177,6 @@ contains
           magnet(i)=magnet(i)+abs(mean(phi))
           magnetps(i)=magnetps(i)+abs(phi(1))
           call correlation(phi,corr1,corr2)
-          call correlation2(phi,xi2(i))
         end do
         corr1(:)=corr1(:)/real(Nmsrs,dp)
         corr2(:,:)=corr2(:,:)/real(Nmsrs,dp)
@@ -181,17 +187,18 @@ contains
       arate(:)=arate(:)/real(Nmsrs,dp)
       action(:)=action(:)/real(Nmsrs,dp)
       magnet(:)=magnet(:)/real(Nmsrs,dp)
-      xi2(:)=xi2(:)/real(Nmsrs,dp)
       magnetps(:)=magnetps(:)/real(Nmsrs,dp)
-      do i=1,N
-          call mean_scalar(CF(i,:),CF_ave(i,k),CF_delta(i,k))
-      end do
-
+      
       call mean_scalar(arate,arate_ave,arate_err)
       call mean_scalar(action,action_ave,action_err)
       call mean_scalar(magnet,magnet_ave,magnet_err)
       call mean_scalar(magnetps,magnetps_ave,magnetps_err)
-      call mean_scalar(xi2,xi2_ave,xi2_err)
+      do i=1,N
+          call mean_scalar(CF(i,:),CF_ave(i,k),CF_delta(i,k))
+      end do
+
+      call correlation2(CF_ave(:,k), CF_delta(:,k), xi2_ave, xi2_err)
+      
       write(*,*) m0,arate_ave,arate_err
       write(20,*) m0,action_ave/real(N,dp), action_err/real(N,dp)
       write(30,*) m0,magnet_ave/real(N,dp), magnet_err/real(N,dp)

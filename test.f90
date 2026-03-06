@@ -4,9 +4,11 @@ program test
     integer(i4),parameter :: N=6
     real(dp), dimension(N) :: phi
 
+    write(*,*) 'Configuración inicial'
     call hot_start(phi,1._dp)
     write(*,*) phi(:)
     call cluster(phi)
+    write(*,*) 'Configuración final'
     write(*,*) phi(:)
 
 contains
@@ -63,13 +65,16 @@ contains
     do i=1,N
         if(spin(i)==spin(mod(i,N)+1) ) then
           beta=abs(phi(i))*abs(phi(mod(i,N)+1))
-          p=1._dp-exp(-2._dp*beta )
+          p=1._dp!-exp(-2._dp*beta )
           call random_number(r)
           bond_x(i)=(r<p)
         else
           bond_x(i)=.false.
         end if
     end do
+    
+    write(*,*) 'Enlaces'
+    write(*,*) bond_x(:)
 
     label(:)=0
     do i=1,N
@@ -90,10 +95,19 @@ contains
           label(i)=left_label
         end if
     end do
+    
+    write(*,*) 'Labels before union'
+    write(*,*) label(:)
 
     if(bond_x(N) ) then
       call union(label(1),label(N),parent )
     end if
+    do i=1,N
+      label(i)=find(label(i),parent)
+    end do
+    
+    write(*,*) 'Labels after union'
+    write(*,*) label(:)
 
     allocate(flip_cluster(next_label) )
     flip_cluster(:)=.false.

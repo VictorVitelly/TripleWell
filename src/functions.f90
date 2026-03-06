@@ -22,7 +22,7 @@ contains
     real(dp), dimension(:), intent(in) :: phi
     integer(i4), intent(in) :: i1
     real(dp) :: potential
-    potential=m02*phi(i1)**2+c*phi(i1)**4
+    potential=(m02*phi(i1)**2+0.5_dp*c*phi(i1)**4)/2._dp
     !potential=m02*(phi(i1)**2) *((phi(i1)-c)*(phi(i1)+c) )**2 /2._dp
     !potential=(phi(i1)**6+2._dp*phi(i1)**4-2._dp*(2._dp*m02+1)*phi(i1)**2) /2._dp
     !potential=m02*(phi(i1)**2+1._dp) *((phi(i1)-c)*(phi(i1)+c) )**2 /2._dp
@@ -45,7 +45,7 @@ contains
     Narr=size(phi,dim=1)
     S=0._dp
     do i1=1,Narr
-        S=S+lagrangian(m02,phi,i1)
+        S=S+dt*lagrangian(m02,phi,i1)
     end do
   end function S
 
@@ -61,7 +61,7 @@ contains
     phiy(i1)=phi2
     DSa=lagrangian(m02,phiy,i1)+0.5_dp*(phi2-phi(iv(i1-1)))**2
     DSb=lagrangian(m02,phi,i1)+0.5_dp*(phi(i1)-phi(iv(i1-1)))**2
-    DeltaS=DSa -DSb
+    DeltaS=dt*(DSa -DSb)
   end function DeltaS
 
   function mean(phi)

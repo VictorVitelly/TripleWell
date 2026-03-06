@@ -6,7 +6,7 @@ program main
   use measurements
   implicit none
 
-    call vary_mu(0.0_dp,-3.0_dp,21)
+    call vary_mu(2.0_dp,-5.0_dp,51)
     !call make_histogram(a)
 
 end program main
